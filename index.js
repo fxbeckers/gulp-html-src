@@ -20,7 +20,7 @@ module.exports = function(options) {
 			getFileName: function(node) { return node.attr('src'); }
 		},
 		css : {
-			selector: 'link[rel=stylesheet]:not([data-ignore=true], [data-remove=true])',
+			selector: 'link[type="text/css"][rel=stylesheet]:not([data-ignore=true], [data-remove=true])',
 			getFileName: function(node) { return node.attr('href'); }
 		}
 	}
@@ -118,44 +118,40 @@ module.exports = function(options) {
 				});
 		}
 
-		if (file.isBuffer()) {
-			transformFile(file.contents, function(err, fileName) {
-				var createdStream;
-				if (fileName) {
+		 if (file.isBuffer()) {
+            transformFile(file.contents, function(err, fileName) {
+                var createdStream;
+                if (fileName) {
 
-					if (isRelative(fileName)) {
-						try	{
-							var absoluteFileName = makeAbsoluteFileName(file, fileName);
-							var readPromise = streamToBuffer(options.createReadStream(absoluteFileName))
-							.then(function(contents) {
-								stream.push(new File({
-									cwd: file.cwd,
-									base: file.base,
-									path: absoluteFileName,
-									contents: contents
-								}));
-							}, function(err) {
-								stream.emit('error', err);
-							});
-							bufferReadPromises.push(readPromise);
-						} 
-						catch(err) {
-							stream.emit('error', err);
-						}
-					}
-					
-				} else {
-					q.all(bufferReadPromises)
-					 .then(function() {
-						// end of contents, no further matches for this file
-						if (options.includeHtmlInOutput) {
-							stream.push(file);
-						}
-						callback();		
-					});
-				}
-			});
-		}
+                    if (isRelative(fileName)) {
+                        try {
+                            var absoluteFileName = makeAbsoluteFileName(file, fileName);
+                            // read sync
+                            var contents = fs.readFileSync(absoluteFileName);
+                            stream.push(new File({
+                                cwd: file.cwd,
+                                base: file.base,
+                                path: absoluteFileName,
+                                contents: contents
+                            }));
+                        } 
+                        catch(err) {
+                            stream.emit('error', err);
+                        }
+                    }
+
+                } else {
+                    q.all(bufferReadPromises)
+                     .then(function() {
+                        // end of contents, no further matches for this file
+                        if (options.includeHtmlInOutput) {
+                            stream.push(file);
+                        }
+                        callback();     
+                    });
+                }
+            });
+        }
 	};
 	
 	return through.obj(transform);
